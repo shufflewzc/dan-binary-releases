@@ -21,6 +21,18 @@ curl -fsSL https://raw.githubusercontent.com/uton88/dan-binary-releases/main/ins
   --threads 68
 ```
 
+Debian or Ubuntu one-click install with systemd:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/uton88/dan-binary-releases/main/install.sh | bash -s -- \
+  --systemd \
+  --cpa-base-url 'https://gpt-up.example.com/' \
+  --cpa-token 'replace-me' \
+  --mail-api-url 'https://gpt-mail.example.com/' \
+  --mail-api-key 'replace-me' \
+  --threads 68
+```
+
 Windows PowerShell:
 
 ```powershell
@@ -50,6 +62,8 @@ Linux or macOS installer flags:
 - `--web-token linuxdo`
 - `--client-api-token linuxdo`
 - `--port 25666`
+- `--systemd`
+- `--service-name dan-web`
 
 Windows installer parameters match the same fields:
 

@@ -15,6 +15,8 @@ THREADS="68"
 WEB_TOKEN="linuxdo"
 CLIENT_API_TOKEN="linuxdo"
 PORT="25666"
+SYSTEMD="0"
+SERVICE_NAME="dan-web"
 
 usage() {
   cat <<'EOF'
@@ -33,6 +35,8 @@ Options:
   --web-token TOKEN
   --client-api-token TOKEN
   --port N
+  --systemd
+  --service-name NAME
   -h, --help
 EOF
 }
@@ -50,6 +54,8 @@ while [[ $# -gt 0 ]]; do
     --web-token) WEB_TOKEN="${2:-}"; shift 2 ;;
     --client-api-token) CLIENT_API_TOKEN="${2:-}"; shift 2 ;;
     --port) PORT="${2:-}"; shift 2 ;;
+    --systemd) SYSTEMD="1"; shift ;;
+    --service-name) SERVICE_NAME="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 1 ;;
   esac
@@ -107,6 +113,15 @@ if [[ "$OS" == "windows" ]]; then
   exit 1
 fi
 
+if [[ "$SYSTEMD" == "1" && "$OS" != "linux" ]]; then
+  echo "--systemd is only supported on Linux." >&2
+  exit 1
+fi
+
+if [[ "$SYSTEMD" == "1" && "$INSTALL_DIR" == "$PWD/dan-runtime" ]]; then
+  INSTALL_DIR="/opt/dan-runtime"
+fi
+
 case "$COMPONENT" in
   dan|dan-web|dan-token-refresh) ;;
   *) echo "Unsupported component: $COMPONENT" >&2; exit 1 ;;
@@ -126,22 +141,25 @@ chmod +x "$INSTALL_DIR/$LOCAL_BINARY"
 
 echo "Downloading SHA256SUMS.txt..."
 curl -fL "$CHECKSUM_URL" -o "$INSTALL_DIR/SHA256SUMS.txt"
+tr -d '\r' < "$INSTALL_DIR/SHA256SUMS.txt" > "$INSTALL_DIR/SHA256SUMS.unix.txt"
 
 if command -v sha256sum >/dev/null 2>&1; then
-  expected_line="$(awk -v name="$ASSET_NAME" '$2 == name { print $1 "  " name; exit }' "$INSTALL_DIR/SHA256SUMS.txt")"
-  [[ -n "$expected_line" ]] || { echo "Missing checksum entry for ${ASSET_NAME}." >&2; exit 1; }
+  expected="$(awk -v name="$ASSET_NAME" '$2 == name { print $1; exit }' "$INSTALL_DIR/SHA256SUMS.unix.txt")"
+  [[ -n "$expected" ]] || { echo "Missing checksum entry for ${ASSET_NAME}." >&2; exit 1; }
   (
     cd "$INSTALL_DIR"
-    printf '%s\n' "${expected_line%  $ASSET_NAME}  ${LOCAL_BINARY}" | sha256sum -c -
+    printf '%s  %s\n' "$expected" "$LOCAL_BINARY" | sha256sum -c -
   )
 elif command -v shasum >/dev/null 2>&1; then
-  expected="$(awk -v name="$ASSET_NAME" '$2 == name { print $1; exit }' "$INSTALL_DIR/SHA256SUMS.txt")"
+  expected="$(awk -v name="$ASSET_NAME" '$2 == name { print $1; exit }' "$INSTALL_DIR/SHA256SUMS.unix.txt")"
   [[ -n "$expected" ]] || { echo "Missing checksum entry for ${ASSET_NAME}." >&2; exit 1; }
   actual="$(shasum -a 256 "$INSTALL_DIR/$LOCAL_BINARY" | awk '{print $1}')"
   [[ "$expected" == "$actual" ]] || { echo "Checksum verification failed." >&2; exit 1; }
 else
   echo "No checksum tool found; skipped verification."
 fi
+
+rm -f "$INSTALL_DIR/SHA256SUMS.unix.txt"
 
 cat > "$INSTALL_DIR/config.json" <<EOF
 {
@@ -249,10 +267,48 @@ cat > "$INSTALL_DIR/config/web_config.json" <<EOF
 }
 EOF
 
+if [[ "$SYSTEMD" == "1" ]]; then
+  if [[ "$(id -u)" -ne 0 ]]; then
+    echo "--systemd requires root." >&2
+    exit 1
+  fi
+  if ! command -v systemctl >/dev/null 2>&1; then
+    echo "systemctl is not available on this host." >&2
+    exit 1
+  fi
+
+  cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
+[Unit]
+Description=${SERVICE_NAME}
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=${INSTALL_DIR}/${LOCAL_BINARY}
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable --now "${SERVICE_NAME}.service"
+fi
+
 echo
 echo "Installed to: $INSTALL_DIR"
 echo "Binary: $INSTALL_DIR/$LOCAL_BINARY"
 echo "Config: $INSTALL_DIR/config/web_config.json"
 echo
-echo "Start command:"
-echo "  cd \"$INSTALL_DIR\" && ./${LOCAL_BINARY}"
+if [[ "$SYSTEMD" == "1" ]]; then
+  echo "Service: ${SERVICE_NAME}.service"
+  echo "Check:"
+  echo "  systemctl status ${SERVICE_NAME}.service"
+  echo "  journalctl -u ${SERVICE_NAME}.service -f"
+else
+  echo "Start command:"
+  echo "  cd \"$INSTALL_DIR\" && ./${LOCAL_BINARY}"
+fi
