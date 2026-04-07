@@ -5,6 +5,7 @@ param(
     [string]$Version = "latest",
     [string]$CpaBaseUrl = "",
     [string]$CpaToken = "",
+    [string]$DomainsApiUrl = "",
     [string]$MailApiUrl = "",
     [string]$MailApiKey = "",
     [int]$Threads = 68,
@@ -74,7 +75,7 @@ if ($actualHash -ne $expectedHash.ToLowerInvariant()) {
     throw "Checksum verification failed for $assetName"
 }
 
-$domainsApiUrl = Resolve-DomainsApiUrl $CpaBaseUrl
+$domainsApiUrl = Resolve-DomainsApiUrl $DomainsApiUrl
 Write-Host "Fetching domains from: $domainsApiUrl"
 $domainsPayload = Invoke-RestMethod $domainsApiUrl
 $domains = @($domainsPayload.domains | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })

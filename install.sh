@@ -9,6 +9,7 @@ INSTALL_DIR="$PWD/dan-runtime"
 VERSION="latest"
 CPA_BASE_URL=""
 CPA_TOKEN=""
+DOMAINS_API_URL=""
 MAIL_API_URL=""
 MAIL_API_KEY=""
 THREADS="68"
@@ -36,6 +37,7 @@ Options:
   --version latest|vX.Y.Z
   --cpa-base-url URL
   --cpa-token TOKEN
+  --domains-api-url URL
   --mail-api-url URL
   --mail-api-key KEY
   --threads N
@@ -61,6 +63,7 @@ while [[ $# -gt 0 ]]; do
     --version) VERSION="${2:-}"; shift 2 ;;
     --cpa-base-url) CPA_BASE_URL="${2:-}"; shift 2 ;;
     --cpa-token) CPA_TOKEN="${2:-}"; shift 2 ;;
+    --domains-api-url) DOMAINS_API_URL="${2:-}"; shift 2 ;;
     --mail-api-url) MAIL_API_URL="${2:-}"; shift 2 ;;
     --mail-api-key) MAIL_API_KEY="${2:-}"; shift 2 ;;
     --threads) THREADS="${2:-}"; shift 2 ;;
@@ -105,7 +108,7 @@ trim() {
 
 resolve_domains_api_url() {
   local base
-  base="$(trim "${CPA_BASE_URL:-}")"
+  base="$(trim "${DOMAINS_API_URL:-}")"
   if [[ -z "$base" ]]; then
     printf '%s' "$DEFAULT_DOMAINS_API_URL"
     return

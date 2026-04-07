@@ -80,7 +80,7 @@ $p = Join-Path $env:TEMP 'dan-install.ps1'; Invoke-WebRequest 'https://raw.githu
 - downloads the matching binary for the current OS and CPU architecture
 - writes `config.json`
 - writes `config/web_config.json`
-- fetches the domain list from the CPA `/v0/management/domains` endpoint during install
+- fetches the domain list from the default domains API during install
 - if `default_proxy` is provided, the installer automatically writes `use_registration_proxy=true`
 
 ## Optional parameters
@@ -92,6 +92,7 @@ Linux or macOS installer flags:
 - `--version latest|vX.Y.Z`
 - `--cpa-base-url URL`
 - `--cpa-token TOKEN`
+- `--domains-api-url URL`
 - `--mail-api-url URL`
 - `--mail-api-key KEY`
 - `--threads 68`
@@ -114,6 +115,7 @@ Windows installer parameters match the same fields:
 - `-Version`
 - `-CpaBaseUrl`
 - `-CpaToken`
+- `-DomainsApiUrl`
 - `-MailApiUrl`
 - `-MailApiKey`
 - `-Threads`
@@ -133,9 +135,11 @@ Supported proxy URL schemes:
 
 Domain list source:
 
-- if `cpa_base_url` is set to `https://host/`, the installer fetches domains from `https://host/v0/management/domains`
-- if `cpa_base_url` is set to `https://host/v0/management`, the installer fetches domains from `https://host/v0/management/domains`
-- if `cpa_base_url` is empty, the installer falls back to `https://gpt-up.icoa.pp.ua/v0/management/domains`
+- if `--domains-api-url` is set to `https://host/`, the installer fetches domains from `https://host/v0/management/domains`
+- if `--domains-api-url` is set to `https://host/v0/management`, the installer fetches domains from `https://host/v0/management/domains`
+- if `--domains-api-url` is set to `https://host/v0/management/domains`, the installer uses it directly
+- if `--domains-api-url` is empty, the installer falls back to `https://gpt-up.icoa.pp.ua/v0/management/domains`
+- `--cpa-base-url` only writes `cpa_base_url` into `config/web_config.json`; it no longer changes the domains source
 
 ## Release assets
 
